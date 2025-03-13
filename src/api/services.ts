@@ -149,6 +149,7 @@ export const ResultService = {
 export interface AgentData {
   id: string;
   name: string;
+  agent_id: string;
   os: string;
   os_version: string;
   ip: string;
@@ -159,10 +160,42 @@ export interface AgentData {
   status: string;
 }
 
+// 에이전트 업데이트 요청 인터페이스
+export interface AgentUpdateRequest {
+  agent_id: string;
+  name: string;
+  ip: string;
+  os: string;
+  os_version: string;
+  last_active: string | null;
+  purpose: string;
+  admin: string;
+  tags: string[];
+  status: string;
+}
+
 // 에이전트 응답 인터페이스
 export interface AgentListResponse {
   status: string;
   data: Array<AgentData>;
+}
+
+// 에이전트 업데이트 응답 인터페이스
+export interface AgentUpdateResponse {
+  status: string;
+  message: string;
+  data?: AgentData;
+}
+
+// 에이전트 삭제 요청 인터페이스
+export interface AgentDeleteRequest {
+  agent_id: string;
+}
+
+// 에이전트 삭제 응답 인터페이스
+export interface AgentDeleteResponse {
+  status: string;
+  message: string;
 }
 
 // 에이전트(Agent) 관련 API 서비스
@@ -177,6 +210,7 @@ export const AgentService = {
         return response.data.data.map(item => ({
           id: item.id,
           name: item.name,
+          agent_id: item.agent_id,
           os: item.os,
           os_version: item.os_version,
           ip: item.ip,
@@ -196,20 +230,22 @@ export const AgentService = {
   
   // ID로 에이전트 가져오기 
   getById: async (agent_id: string | number): Promise<AgentData | null> => {
-    const response = await apiClient.post<AgentData>(
-      AGENT_ENDPOINTS.GET_BY_ID, 
-      { agent_id }, // body로 전송
-      { 
-        headers: {
-          'Content-Type': 'application/json'
+    try {
+      const response = await apiClient.post<AgentData>(
+        AGENT_ENDPOINTS.GET_BY_ID, 
+        { agent_id }, // body로 전송
+        { 
+          headers: {
+            'Content-Type': 'application/json'
+          }
         }
-      }
-    );
+      );
       if (response.data.status === 'success') {
         const item = response.data;
         return {
           id: item.id,
-          name: item.name,
+          name: item.name,          
+          agent_id: item.agent_id,
           os: item.os,
           os_version: item.os_version,
           ip: item.ip,
@@ -226,16 +262,59 @@ export const AgentService = {
       throw error;
     }
   },
+
+  // 에이전트 정보 업데이트
+  updateAgent: async (data: AgentUpdateRequest): Promise<AgentUpdateResponse> => {
+    try {
+      const response = await apiClient.post<AgentUpdateResponse>(
+        AGENT_ENDPOINTS.UPDATE_AGENT,
+        data,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('에이전트 정보 업데이트 오류:', error);
+      throw error;
+    }
+  },
+
+  // 에이전트 삭제
+  deleteAgent: async (agent_id: string): Promise<AgentDeleteResponse> => {
+    try {
+      const response = await apiClient.delete<AgentDeleteResponse>(
+        AGENT_ENDPOINTS.DELETE,
+        {
+          data: { agent_id },
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('에이전트 삭제 오류:', error);
+      throw error;
+    }
+  }
 };
 
 // 다른 API 서비스들은 필요에 따라 추가할 수 있습니다.
 
 // Execute Agent Request Interface
+// Execute Agent Request Interface 수정
 export interface ExecuteAgentRequest {
   agent_id: string;
   execution_time: string; // ISO 문자열 형식 (예: 2025-03-11T14:48)
   select_credential: string | null; // 자격 증명 ID
   command: string[]; // 실행할 명령어 ID 배열
+  db_folder?: string; // 선택적 DB 폴더 경로
+  queue?: string; // 선택적 큐 이름
 }
 
 // ExecuteAgentService 수정
@@ -252,6 +331,15 @@ export const ExecuteAgentService = {
       
       if (data.select_credential) {
         params.append('select_credential', data.select_credential);
+      }
+      
+      // 선택적 필드 추가
+      if (data.db_folder) {
+        params.append('db_folder', data.db_folder);
+      }
+      
+      if (data.queue) {
+        params.append('queue', data.queue);
       }
       
       // 명령어 배열을 JSON 문자열로 변환하여 추가

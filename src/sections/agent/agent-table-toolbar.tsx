@@ -13,9 +13,15 @@ type AgentTableToolbarProps = {
   numSelected: number;
   filterName: string;
   onFilterName: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onDeleteSelected?: () => void; // 삭제 핸들러 추가
 };
 
-export function AgentTableToolbar({ numSelected, filterName, onFilterName }: AgentTableToolbarProps) {
+export function AgentTableToolbar({ 
+  numSelected, 
+  filterName, 
+  onFilterName,
+  onDeleteSelected 
+}: AgentTableToolbarProps) {
   return (
     <Toolbar
       sx={{
@@ -50,7 +56,7 @@ export function AgentTableToolbar({ numSelected, filterName, onFilterName }: Age
 
       {numSelected > 0 ? (
         <Tooltip title="Delete">
-          <IconButton>
+          <IconButton onClick={onDeleteSelected}>
             <Iconify icon="solar:trash-bin-trash-bold" />
           </IconButton>
         </Tooltip>

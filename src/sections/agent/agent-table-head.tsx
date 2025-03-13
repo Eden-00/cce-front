@@ -17,6 +17,9 @@ type AgentTableHeadProps = {
   onSort: (id: string) => void;
   headLabel: Record<string, any>[];
   onSelectAllRows: (checked: boolean) => void;
+  rowsPerPage: number; // 페이지당 행 수 추가
+  page: number; // 현재 페이지 번호 추가
+  visibleRows: number; // 현재 페이지에 표시된 행 수 추가
 };
 
 export function AgentTableHead({
@@ -27,17 +30,26 @@ export function AgentTableHead({
   headLabel,
   numSelected,
   onSelectAllRows,
+  rowsPerPage,
+  page,
+  visibleRows,
 }: AgentTableHeadProps) {
+  // 현재 페이지의 항목만 고려하여 전체 선택 여부 계산
+  const isAllSelected = visibleRows > 0 && numSelected === visibleRows;
+  const isIndeterminate = numSelected > 0 && numSelected < visibleRows;
+
+  const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    onSelectAllRows(event.target.checked);
+  };
+
   return (
     <TableHead>
       <TableRow>
         <TableCell padding="checkbox">
           <Checkbox
-            indeterminate={numSelected > 0 && numSelected < rowCount}
-            checked={rowCount > 0 && numSelected === rowCount}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-              onSelectAllRows(event.target.checked)
-            }
+            indeterminate={isIndeterminate}
+            checked={isAllSelected}
+            onChange={handleSelectAllClick}
           />
         </TableCell>
 

@@ -25,8 +25,9 @@ export const AGENT_ENDPOINTS = {
   GET_BY_ID: `${API_BASE_URL}/agent-detail`,
   CREATE: `${API_BASE_URL}/agent`,
   UPDATE: (id: string | number) => `${API_BASE_URL}/agent/${id}`,
-  DELETE: (id: string | number) => `${API_BASE_URL}/agent/${id}`,
-  REFRESH: (id: string | number) => `${API_BASE_URL}/agent/${id}/refresh`
+  DELETE: `${API_BASE_URL}/agent-delete`,
+  REFRESH: (id: string | number) => `${API_BASE_URL}/agent/${id}/refresh`,
+  UPDATE_AGENT: `${API_BASE_URL}/agent-update` // 에이전트 정보 업데이트 엔드포인트 추가
 };
 
 // 에이전트(Agent) 실행 엔드포인트

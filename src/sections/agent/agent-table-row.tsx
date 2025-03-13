@@ -1,22 +1,29 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 
-import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
+import IconButton from '@mui/material/IconButton';
+import TableRow from '@mui/material/TableRow';
+import TableCell from '@mui/material/TableCell';
+import Typography from '@mui/material/Typography';
+import MenuItem, { menuItemClasses } from '@mui/material/MenuItem';
+import MenuList from '@mui/material/MenuList';
 import Chip from '@mui/material/Chip';
 import Popover from '@mui/material/Popover';
-import TableRow from '@mui/material/TableRow';
-import Checkbox from '@mui/material/Checkbox';
-import MenuList from '@mui/material/MenuList';
-import TableCell from '@mui/material/TableCell';
-import IconButton from '@mui/material/IconButton';
-import MenuItem, { menuItemClasses } from '@mui/material/MenuItem';
-import Stack from '@mui/material/Stack';
+import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import Button from '@mui/material/Button';
 
-import { Label } from 'src/components/label';
+import { fToNow } from 'src/utils/format-time';
 import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
-export type AgentProps = {
+// 명시적으로 내보냅니다
+export interface AgentProps {
   id: string;
   name: string;
   os: string;
@@ -24,120 +31,154 @@ export type AgentProps = {
   ipAddress: string;
   purpose: string;
   admin: string;
-  last_active: string | null;
   tags: string[];
   status: string;
-};
+  agent_id: string;
+  last_active: string | null;
+}
 
-type AgentTableRowProps = {
+interface AgentTableRowProps {
   row: AgentProps;
   selected: boolean;
   onSelectRow: () => void;
-  onEdit?: (agent: AgentProps) => void;
-  onRefresh?: (agentId: string) => void;
-  onDelete?: (agentId: string) => void;
+  onEdit: () => void;
+  onDelete?: (agent_id: string) => void; // 삭제 핸들러 추가
+}
+
+// OS에 따른 아이콘 매핑 함수
+const getOsIcon = (os: string): string => {
+  const osLower = os.toLowerCase();
+  
+  if (osLower.includes('windows')) return 'mdi:microsoft-windows';
+  if (osLower.includes('mac') || osLower.includes('darwin')) return 'mdi:apple';
+  if (osLower.includes('linux')) return 'mdi:linux';
+  if (osLower.includes('ubuntu')) return 'mdi:ubuntu';
+  if (osLower.includes('android')) return 'mdi:android';
+  if (osLower.includes('ios')) return 'mdi:apple-ios';
+  
+  // 기본 아이콘
+  return 'mdi:desktop-classic';
 };
 
-export function AgentTableRow({ 
-  row, 
-  selected, 
-  onSelectRow, 
-  onEdit, 
-  onRefresh, 
-  onDelete 
+export function AgentTableRow({
+  row,
+  selected,
+  onSelectRow,
+  onEdit,
+  onDelete,
 }: AgentTableRowProps) {
-  const [openPopover, setOpenPopover] = useState<HTMLButtonElement | null>(null);
+  const { name, status, os, osVersion, ipAddress, tags, admin, purpose } = row;
 
-  const handleOpenPopover = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
-    setOpenPopover(event.currentTarget);
-  }, []);
+  const [openMenu, setOpenMenu] = useState<HTMLButtonElement | null>(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
 
-  const handleClosePopover = useCallback(() => {
-    setOpenPopover(null);
-  }, []);
-
-  const handleEdit = useCallback(() => {
-    if (onEdit) {
-      onEdit(row);
-    }
-    setOpenPopover(null);
-  }, [onEdit, row]);
-
-  const handleDelete = useCallback(() => {
-    if (onDelete) {
-      onDelete(row.id);
-    }
-    setOpenPopover(null);
-  }, [onDelete, row.id]);
-
-  // 운영체제에 따른 아이콘 선택
-  const getOsIcon = (os: string) => {
-    const osLower = os.toLowerCase();
-    if (osLower.includes('windows')) return 'mdi:microsoft-windows';
-    if (osLower.includes('mac') || osLower.includes('osx')) return 'mdi:apple';
-    if (osLower.includes('linux') || osLower.includes('ubuntu') || osLower.includes('centos')) return 'mdi:linux';
-    return 'mdi:desktop-classic';
+  const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setOpenMenu(event.currentTarget);
   };
+
+  const handleCloseMenu = () => {
+    setOpenMenu(null);
+  };
+
+  const handleOpenDeleteDialog = () => {
+    handleCloseMenu();
+    setOpenDeleteDialog(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setOpenDeleteDialog(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (onDelete) {
+      onDelete(row.agent_id);
+    }
+    handleCloseDeleteDialog();
+  };
+
+  // OS에 맞는 아이콘 가져오기
+  const osIcon = getOsIcon(os);
 
   return (
     <>
-      <TableRow hover tabIndex={-1} role="checkbox" selected={selected}>
+      <TableRow hover selected={selected}>
         <TableCell padding="checkbox">
-          <Checkbox disableRipple checked={selected} onChange={onSelectRow} />
+          <Checkbox checked={selected} onClick={onSelectRow} />
         </TableCell>
 
         <TableCell>
-            {row.name}
+          <Typography variant="subtitle2" noWrap>
+            {name}
+          </Typography>
         </TableCell>
 
-        <TableCell component="th" scope="row">
-          <Box gap={2} display="flex" alignItems="center">
-            <Iconify icon={getOsIcon(row.os)} width={24} height={24} />
-            {row.os} {row.osVersion}
+        <TableCell>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Iconify icon={osIcon} width={20} height={20} sx={{ mr: 1 }} />
+            <Typography variant="body2" noWrap>
+              {os} {osVersion ? `/ ${osVersion}` : ''}
+            </Typography>
           </Box>
         </TableCell>
 
-        <TableCell>{row.ipAddress}</TableCell>
-
-        <TableCell>{row.purpose}</TableCell>
-
-        <TableCell>{row.admin}</TableCell>
-
         <TableCell>
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {row.tags.map((tag) => (
-              <Chip 
-                key={tag} 
-                label={tag} 
-                size="small" 
-                variant="outlined" 
-                sx={{ margin: '2px' }}
-              />
-            ))}
-          </Stack>
+          <Typography variant="body2" noWrap>
+            {ipAddress}
+          </Typography>
         </TableCell>
 
         <TableCell>
-          <Label 
-            color={(row.status === 'offline' && 'error') || 
-                  (row.status === 'idle' && 'warning') || 
-                  'success'}
-          >
-            {row.status}
-          </Label>
+          <Typography variant="body2" noWrap>
+            {purpose}
+          </Typography>
+        </TableCell>
+
+        <TableCell>
+          <Typography variant="body2" noWrap>
+            {admin}
+          </Typography>
+        </TableCell>
+
+        <TableCell>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {tags.length > 0 ? (
+              tags.map((tag) => (
+                <Chip key={tag} label={tag} size="small" />
+              ))
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                태그 없음
+              </Typography>
+            )}
+          </Box>
+        </TableCell>
+
+        <TableCell>
+          <Chip
+            label={status}
+            size="small"
+            color={
+              (status === 'online' && 'success') ||
+              (status === 'idle' && 'warning') ||
+              'error'
+            }
+          />
+          <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+            {row.last_active ? fToNow(row.last_active) : 'Never'}
+          </Typography>
         </TableCell>
 
         <TableCell align="right">
-          <IconButton onClick={handleOpenPopover}>
+          <IconButton size="large" color="inherit" onClick={handleOpenMenu}>
             <Iconify icon="eva:more-vertical-fill" />
           </IconButton>
         </TableCell>
       </TableRow>
 
       <Popover
-        open={!!openPopover}
-        anchorEl={openPopover}
-        onClose={handleClosePopover}
+        open={!!openMenu}
+        anchorEl={openMenu}
+        onClose={handleCloseMenu}
         anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
@@ -157,17 +198,45 @@ export function AgentTableRow({
             },
           }}
         >
-          <MenuItem onClick={handleEdit}>
+          <MenuItem onClick={() => {
+            onEdit();
+            handleCloseMenu();
+          }}>
             <Iconify icon="solar:pen-bold" />
             Edit
           </MenuItem>
 
-          <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+          <MenuItem onClick={handleOpenDeleteDialog} sx={{ color: 'error.main' }}>
             <Iconify icon="solar:trash-bin-trash-bold" />
             Delete
           </MenuItem>
         </MenuList>
       </Popover>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog
+        open={openDeleteDialog}
+        onClose={handleCloseDeleteDialog}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          에이전트 삭제 확인
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            &ldquo;{name}&rdquo; 에이전트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog} color="inherit">
+            취소
+          </Button>
+          <Button onClick={handleConfirmDelete} color="error" variant="contained" autoFocus>
+            삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
