@@ -205,22 +205,23 @@ export const AgentService = {
     try {
       const response = await apiClient.get<AgentListResponse>(AGENT_ENDPOINTS.GET_ALL);
       
-      if (response.data.status === 'success') {
+      if (response.data && response.data.status === 'success' && Array.isArray(response.data.data)) {
         // API 응답 데이터를 컴포넌트에서 사용하는 형식으로 변환
         return response.data.data.map(item => ({
           id: item.id,
-          name: item.name,
+          name: item.name || 'Unknown',
           agent_id: item.agent_id,
-          os: item.os,
-          os_version: item.os_version,
-          ip: item.ip,
-          purpose: item.purpose,
-          admin: item.admin,
+          os: item.os || '',
+          os_version: item.os_version || '',
+          ip: item.ip || '',
+          purpose: item.purpose || '',
+          admin: item.admin || '',
           last_active: item.last_active,
-          tags: item.tags,
-          status: item.status
+          tags: item.tags || [],
+          status: item.status || 'offline'
         }));
       }
+      console.error('API 응답 구조가 예상과 다릅니다:', response.data);
       return [];
     } catch (error) {
       console.error('에이전트 목록 조회 오류:', error);

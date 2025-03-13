@@ -21,6 +21,7 @@ import { Iconify } from 'src/components/iconify';
 
 import { ExecuteAgentRequest } from 'src/api/services';
 
+// Interfaces and Command Definitions
 import { 
   Command, 
   Agent, 
@@ -28,112 +29,25 @@ import {
   COMMANDS
 } from './execute-common';
 
-// OS에 따른 아이콘 매핑 함수
-const getOsIcon = (serverName: string): string => {
-  // 서버 이름에서 OS 타입 추출 시도
-  const nameLower = serverName.toLowerCase();
-  
-  if (nameLower.includes('database')) return 'mdi:database';
-  if (nameLower.includes('web')) return 'mdi:web';
-  if (nameLower.includes('was')) return 'mdi:server';
-  
-  // 다음은 OS 기반 아이콘
-  if (nameLower.includes('linux')) return 'mdi:linux';
-  if (nameLower.includes('windows')) return 'mdi:microsoft-windows';
-  if (nameLower.includes('mac') || nameLower.includes('darwin')) return 'mdi:apple';
-  if (nameLower.includes('ubuntu')) return 'mdi:ubuntu';
-  if (nameLower.includes('android')) return 'mdi:android';
-  if (nameLower.includes('ios')) return 'mdi:apple-ios';
-  
-  if (nameLower.includes('development') || nameLower.includes('pc')) return 'mdi:desktop-classic';
-  if (nameLower.includes('test')) return 'mdi:test-tube';
-  
-  // 기본 아이콘
-  return 'mdi:server-network';
-};
-
-// 상태에 따른 색상 매핑 함수
-const getStatusColor = (status: string): string => {
-  switch (status.toLowerCase()) {
-    case 'online':
-      return '#4caf50'; // 녹색
-    case 'offline':
-      return '#f44336'; // 빨간색
-    case 'maintenance':
-      return '#ff9800'; // 주황색
-    case 'idle':
-      return '#ffeb3b'; // 노란색
-    default:
-      return '#9e9e9e'; // 회색
-  }
-};
-
 // Props 타입 정의
 interface ExecuteSingleViewProps {
+  agents: Agent[];
   credentials: Credential[];
   executeCommand: (request: ExecuteAgentRequest) => Promise<any>;
 }
 
-export function ExecuteSingleView({ credentials, executeCommand }: ExecuteSingleViewProps) {
+export function ExecuteSingleView({ agents, credentials, executeCommand }: ExecuteSingleViewProps) {
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [selectedCommand, setSelectedCommand] = useState<string>('');
   const [selectedCommandList, setSelectedCommandList] = useState<Command[]>([]);
   const [executionTime, setExecutionTime] = useState<string>('');
   const [selectedCredential, setSelectedCredential] = useState<string>('');
   const [showCredentialSelect, setShowCredentialSelect] = useState<boolean>(false);
-  const [dbFolder, setDbFolder] = useState<string>('');
-  const [queue, setQueue] = useState<string>('');
-  
-  // 에이전트 데이터 상태
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
   
   // 알림 상태
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'error'>('success');
-  
-  // 드롭다운 메뉴 상태
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  
-  // 에이전트 데이터 가져오기
-  useEffect(() => {
-    const fetchAgents = async () => {
-      try {
-        setLoading(true);
-        // API 호출 - /api/front/agent-view 엔드포인트 사용
-        const response = await fetch('/api/front/agent-view');
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch agents');
-        }
-        
-        const data = await response.json();
-        
-        // 받아온 데이터를 Agent 인터페이스에 맞게 변환
-        const formattedAgents: Agent[] = data.data.map((agent: any) => ({
-          id: agent.agent_id || agent.id,
-          name: agent.name,
-          ipAddress: agent.ip || agent.ipAddress,
-          status: agent.status,
-          os: agent.os || '',
-          osVersion: agent.os_version || agent.osVersion || '',
-          tags: agent.tags || []
-        }));
-        
-        setAgents(formattedAgents);
-      } catch (error) {
-        console.error('Error fetching agents:', error);
-        setAlertMessage('에이전트 목록을 불러오는 중 오류가 발생했습니다.');
-        setAlertSeverity('error');
-        setAlertOpen(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchAgents();
-  }, []);
 
   // DB 명령어인지 확인하여 자격 증명 선택 표시 여부 결정
   useEffect(() => {
@@ -170,14 +84,6 @@ export function ExecuteSingleView({ credentials, executeCommand }: ExecuteSingle
     setExecutionTime(event.target.value);
   };
 
-  const handleDbFolderChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setDbFolder(event.target.value);
-  };
-
-  const handleQueueChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setQueue(event.target.value);
-  };
-
   const handleCredentialChange = (event: SelectChangeEvent) => {
     setSelectedCredential(event.target.value);
   };
@@ -193,9 +99,7 @@ export function ExecuteSingleView({ credentials, executeCommand }: ExecuteSingle
         agent_id: selectedAgentId,
         execution_time: executionTime || new Date().toISOString().slice(0, 16), // 빈 값이면 현재 시간 사용
         select_credential: showCredentialSelect ? selectedCredential : null,
-        command: selectedCommandList.map(cmd => cmd.id),
-        db_folder: dbFolder || undefined,
-        queue: queue || undefined
+        command: selectedCommandList.map(cmd => cmd.id)
       };
       
       // 명령 실행 요청
@@ -265,61 +169,13 @@ export function ExecuteSingleView({ credentials, executeCommand }: ExecuteSingle
                   value={selectedAgentId}
                   onChange={handleAgentChange}
                   label="Select Agent"
-                  open={dropdownOpen}
-                  onOpen={() => setDropdownOpen(true)}
-                  onClose={() => setDropdownOpen(false)}
-                  disabled={loading}
-                  MenuProps={{
-                    PaperProps: {
-                      style: {
-                        maxHeight: 300,
-                      },
-                    },
-                  }}
                 >
-                  <MenuItem value="" disabled>
-                    {loading ? '에이전트 로딩 중...' : 'Select an agent'}
-                  </MenuItem>
-                  
-                  {!loading && agents.length === 0 && (
-                    <MenuItem disabled>
-                      사용 가능한 에이전트가 없습니다
+                  <MenuItem value="" disabled>Select an agent</MenuItem>
+                  {agents.map((agent) => (
+                    <MenuItem key={agent.id} value={agent.id}>
+                      {agent.name} ({agent.ipAddress}) - {agent.status}
                     </MenuItem>
-                  )}
-                  
-                  {!loading && agents.map((agent) => {
-                    const osIcon = agent.os ? 
-                      getOsIcon(agent.os) : 
-                      getOsIcon(agent.name);
-                    const statusColor = getStatusColor(agent.status);
-                    
-                    return (
-                      <MenuItem key={agent.id} value={agent.id} sx={{ py: 1 }}>
-                        <Box display="flex" alignItems="center" width="100%">
-                          <Box display="flex" alignItems="center" flexGrow={1}>
-                            <Iconify icon={osIcon} width={20} height={20} sx={{ mr: 1 }} />
-                            <Typography variant="body1">
-                              {agent.name} 
-                            </Typography>
-                          </Box>
-                          <Box display="flex" alignItems="center">
-                            <Typography variant="caption" sx={{ mx: 1 }}>
-                              ({agent.ipAddress})
-                            </Typography>
-                            <Box 
-                              sx={{ 
-                                width: 10, 
-                                height: 10, 
-                                borderRadius: '50%', 
-                                backgroundColor: statusColor,
-                                ml: 1
-                              }} 
-                            />
-                          </Box>
-                        </Box>
-                      </MenuItem>
-                    );
-                  })}
+                  ))}
                 </Select>
               </FormControl>
 
@@ -378,28 +234,6 @@ export function ExecuteSingleView({ credentials, executeCommand }: ExecuteSingle
                   </Select>
                 </FormControl>
               )}
-
-              {/* DB Folder - 새로 추가된 필드 */}
-              {showCredentialSelect && (
-                <TextField
-                  id="db-folder"
-                  label="DB Folder"
-                  value={dbFolder}
-                  onChange={handleDbFolderChange}
-                  fullWidth
-                  helperText="Database 스캔 폴더 위치를 지정합니다"
-                />
-              )}
-
-              {/* Queue 필드 추가 */}
-              <TextField
-                id="queue"
-                label="Queue"
-                value={queue}
-                onChange={handleQueueChange}
-                fullWidth
-                helperText="선택사항: 특정 큐에 작업 할당"
-              />
 
               {/* Execution Time */}
               <Box 

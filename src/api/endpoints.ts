@@ -1,7 +1,7 @@
 // src/api/endpoints.ts
 
-// 기본 API URL
-export const API_BASE_URL = 'http://13.125.36.244:18586/api/front';
+// 기본 API URL - baseURL을 절대경로에서 상대경로로 수정
+export const API_BASE_URL = '/api/front';
 
 // 자격 증명(Credential) 관련 엔드포인트
 export const CREDENTIAL_ENDPOINTS = {
@@ -32,6 +32,6 @@ export const AGENT_ENDPOINTS = {
 
 // 에이전트(Agent) 실행 엔드포인트
 export const EXECUTE_ENDPOINTS = {
-  EXECUTE_AGENT: `${API_BASE_URL}/execute-agent`
+  EXECUTE_AGENT: `${API_BASE_URL}/agent-execute`
 };
 // 다른 API 엔드포인트들은 필요에 따라 추가할 수 있습니다.
