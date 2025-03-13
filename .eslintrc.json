@@ -1,0 +1,15 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "jest": true // ✅ Jest 환경 추가
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "rules": {
+    "no-undef": "off" // ✅ 'test', 'expect' 오류 방지
+  }
+}
