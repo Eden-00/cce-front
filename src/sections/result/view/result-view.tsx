@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 
+import { ResultService, ResultData } from 'src/api/services'; // 먼저 서비스 import
+
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Table from '@mui/material/Table';
@@ -21,61 +23,9 @@ import { ResultTableHead } from '../result-table-head';
 import { TableEmptyRows } from '../table-empty-rows';
 import { ResultTableToolbar } from '../result-table-toolbar';
 import { emptyRows, applyFilter, getComparator } from '../utils';
+import { ResultFileDialog } from './result-file-dialog';
 
 import type { ResultProps } from '../result-table-row';
-
-// ----------------------------------------------------------------------
-
-// 임시 결과 데이터 (API 연동 전까지 사용)
-const SAMPLE_RESULTS: ResultProps[] = [
-  {
-    id: '1',
-    agent: 'Scanner Bot',
-    executionTime: '2025-03-10 10:23:45',
-    field: 'DATABASE',
-    subject: 'MySQL',
-    fileName: 'scan_result_001.json',
-    status: 'completed'
-  },
-  {
-    id: '2',
-    agent: 'Vulnerability Detector',
-    executionTime: '2025-03-09 14:12:30',
-    field: 'WEB',
-    subject: 'TOMCAT',
-    fileName: 'vulnerability_report.xml',
-    status: 'completed'
-  },
-  {
-    id: '3',
-    agent: 'Network Analyzer',
-    executionTime: '2025-03-08 08:45:12',
-    field: 'WAS',
-    subject: 'TOMCAT',
-    fileName: 'network_analysis.log',
-    status: 'failed'
-  },
-  {
-    id: '4',
-    agent: 'Config Checker',
-    executionTime: '2025-03-07 16:30:22',
-    field: 'SERVER',
-    subject: 'UBUNTU',
-    fileName: 'config_check.txt',
-    status: 'completed'
-  },
-  {
-    id: '5',
-    agent: 'Malware Detector',
-    executionTime: '2025-03-06 11:18:54',
-    field: 'PC',
-    subject: 'MAC',
-    fileName: 'malware_scan.json',
-    status: 'completed'
-  }
-];
-
-// ----------------------------------------------------------------------
 
 export function ResultView() {
   const table = useTable();
@@ -84,27 +34,42 @@ export function ResultView() {
   // 데이터 로딩 상태 관리
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<ResultProps[]>(SAMPLE_RESULTS);
+  const [results, setResults] = useState<ResultProps[]>([]);
+  
+  // 파일 내용 보기 관련 상태
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
+  const [fileDialogOpen, setFileDialogOpen] = useState(false);
+
+  // 파일명 파싱 함수 수정
+  const parseFileName = (fileData: ResultData): ResultProps => {
+    const fileName = fileData.filename; // filename 프로퍼티 사용
+    const [agent, timestamp, field, subject] = fileName.split('_');
+    return {
+      id: fileName,
+      agent,
+      executionTime: timestamp,
+      field,
+      subject: subject.replace('.xml', '')
+    };
+  };
 
   // API에서 결과 데이터 가져오기
   const fetchResults = useCallback(async () => {
-    // 현재는 샘플 데이터를 사용하고 API 호출은 주석 처리
     setLoading(true);
     setError(null);
     
     try {
-      // 실제 API 연동 시 주석 해제
-      /*
-      const data = await ResultService.getAll();
-      setResults(data);
-      */
+      const response = await ResultService.getAll();
+      console.log(response)
+      if (response.status === 'success') {
+        const parsedResults = response.files.map(parseFileName);
+        setResults(parsedResults);
+      } else {
+        setError('데이터를 불러오는 데 실패했습니다.');
+      }
       
-      // 샘플 데이터 사용 (API 연동 전까지)
-      // API 호출 시뮬레이션 (지연 시간 추가)
-      setTimeout(() => {
-        setResults(SAMPLE_RESULTS);
-        setLoading(false);
-      }, 500);
+      setLoading(false);
     } catch (err) {
       setError('서버 연결에 문제가 발생했습니다.');
       console.error('API 호출 오류:', err);
@@ -118,21 +83,22 @@ export function ResultView() {
   }, [fetchResults]);
   
   const handleViewFile = useCallback(async (fileName: string) => {
-    console.log(`Viewing file: ${fileName}`);
-    // TODO: 파일 내용 보기 모달 또는 페이지 열기 구현
-    
-    // 실제 API 연동 시 주석 해제
-    /*
     try {
-      const fileId = fileName.split('.')[0]; // 파일명에서 ID 추출 (프로젝트에 맞게 수정 필요)
-      const content = await ResultService.getFileContent(fileId);
-      // 모달 또는 새 창에 파일 내용 표시
-      console.log('File content:', content);
-    } catch (error) {
-      console.error('파일 내용 조회 오류:', error);
+      const content = await ResultService.getFileContent(fileName);
+      setSelectedFile(fileName);
+      setFileContent(content);
+      setFileDialogOpen(true);
+    } catch (err) {
+      console.error('파일 내용 조회 오류:', err);
+      setError('파일 내용을 불러오는 데 실패했습니다.');
     }
-    */
   }, []);
+
+  const handleCloseFileDialog = () => {
+    setFileDialogOpen(false);
+    setSelectedFile(null);
+    setFileContent(null);
+  };
 
   const handleRefresh = useCallback(() => {
     fetchResults();
@@ -204,10 +170,7 @@ export function ResultView() {
                       { id: 'executionTime', label: '수행시간' },
                       { id: 'field', label: '분야' },
                       { id: 'subject', label: '대상' },
-                      { id: 'fileName', label: '파일명' },
-                      { id: 'status', label: '상태' },
                       { id: 'action', label: '액션' },
-                      { id: '' },
                     ]}
                   />
                   <TableBody>
@@ -249,18 +212,24 @@ export function ResultView() {
           </>
         )}
       </Card>
+
+      <ResultFileDialog 
+        open={fileDialogOpen}
+        fileName={selectedFile || ''}
+        fileContent={fileContent || ''}
+        onClose={handleCloseFileDialog}
+      />
     </DashboardContent>
   );
 }
 
-// ----------------------------------------------------------------------
-
+// useTable 훅 구현
 export function useTable() {
   const [page, setPage] = useState(0);
-  const [orderBy, setOrderBy] = useState('executionTime'); // 기본 정렬 필드 변경
+  const [orderBy, setOrderBy] = useState('executionTime');
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selected, setSelected] = useState<string[]>([]);
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // 최신 항목이 먼저 나오도록 desc로 변경
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
   const onSort = useCallback(
     (id: string) => {

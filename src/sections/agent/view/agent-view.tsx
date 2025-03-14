@@ -36,17 +36,24 @@ import AgentDialog from '../agent-dialog';
 
 // 데이터 변환 함수: API 응답 -> 프론트엔드 타입
 const mapApiAgentToAgentProps = (apiAgent: AgentData): AgentProps => {
-  // 태그 처리: 문자열 또는 객체를 배열로 변환
+  // 태그 처리: 다양한 형태의 태그 데이터 처리
   let tagArray: string[] = [];
-  if (typeof apiAgent.tags === 'string') {
+  
+  if (Array.isArray(apiAgent.tags)) {
+    // tags가 이미 배열인 경우 (["string"])
+    tagArray = apiAgent.tags;
+  } else if (typeof apiAgent.tags === 'string') {
     try {
       // "{}" 형태의 문자열을 파싱
       const parsedTags = JSON.parse(apiAgent.tags);
-      if (parsedTags && typeof parsedTags === 'object') {
+      if (Array.isArray(parsedTags)) {
+        tagArray = parsedTags;
+      } else if (parsedTags && typeof parsedTags === 'object') {
         tagArray = Object.keys(parsedTags);
       }
     } catch {
-      tagArray = [];
+      // 파싱 실패시 단일 태그로 처리
+      tagArray = apiAgent.tags ? [apiAgent.tags] : [];
     }
   } else if (apiAgent.tags && typeof apiAgent.tags === 'object') {
     tagArray = Object.keys(apiAgent.tags);
@@ -102,14 +109,14 @@ export function AgentView() {
       try {
         // getById로 해당 에이전트의 상세 정보 조회
         const detailedAgent = await AgentService.getById(agent.agent_id);
-        
+
         if (detailedAgent) {
           // 기존 에이전트 정보에 상세 정보 매핑
           const updatedAgent: AgentProps = {
             ...agent,
             ...mapApiAgentToAgentProps(detailedAgent)
           };
-          
+
           setCurrentAgent(updatedAgent);
         } else {
           // 조회 실패 시 기존 에이전트 정보 사용

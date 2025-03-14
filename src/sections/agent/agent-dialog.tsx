@@ -66,6 +66,9 @@ interface FormData {
   admin: string;
   tags: string[];
   status: string;
+  agent_id: string;
+  last_active: string;
+
 }
 
 // ----------------------------------------------------------------------
@@ -79,7 +82,9 @@ export default function AgentDialog({ open, onClose, agent = null, onSave }: Age
     purpose: '',
     admin: '',
     tags: [],
-    status: 'offline'
+    status: 'offline',
+    agent_id: '',
+    last_active: ''
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -100,7 +105,9 @@ export default function AgentDialog({ open, onClose, agent = null, onSave }: Age
         purpose: agent.purpose || '',
         admin: agent.admin || '',
         tags: agent.tags || [],
-        status: agent.status || 'offline'
+        status: agent.status || 'offline',
+        agent_id: agent.agent_id || '',
+        last_active: agent.last_active || ''
       });
     } else {
       // 새 에이전트인 경우 폼 초기화
@@ -112,7 +119,9 @@ export default function AgentDialog({ open, onClose, agent = null, onSave }: Age
         purpose: '',
         admin: '',
         tags: [],
-        status: 'offline'
+        status: 'offline',
+        agent_id: '',
+        last_active: ''
       });
     }
     // 에러 상태 초기화
@@ -169,12 +178,12 @@ export default function AgentDialog({ open, onClose, agent = null, onSave }: Age
       try {
         // API 요청 데이터 형식에 맞게 변환
         const apiRequestData: AgentUpdateRequest = {
-          agent_id: agent?.agent_id || '',
+          agent_id: formData.agent_id ,
           name: formData.name,
           ip: formData.ipAddress,
           os: formData.os,
           os_version: formData.osVersion,
-          last_active: agent?.last_active || null,
+          last_active: formData.last_active,
           purpose: formData.purpose,
           admin: formData.admin,
           tags: formData.tags,
@@ -194,8 +203,7 @@ export default function AgentDialog({ open, onClose, agent = null, onSave }: Age
 
           // 변경 불가능한 필드를 원래 값으로 유지
           const submittedData = {
-            id: agent?.id || '', // ID가 없는 경우 빈 문자열 (새 에이전트)
-            agent_id: agent?.agent_id || '',
+            id: agent?.id || '', // ID가 없는 경우 빈 문자열
             ...formData,
             os: agent ? agent.os : formData.os,
             osVersion: agent ? agent.osVersion : formData.osVersion,
@@ -209,7 +217,7 @@ export default function AgentDialog({ open, onClose, agent = null, onSave }: Age
           // 실패 메시지 표시
           setSnackbar({
             open: true,
-            message: response.message || '에이전트 정보 업데이트에 실패했습니다.',
+            message: '에이전트 정보 업데이트에 실패했습니다.',
             severity: 'error'
           });
         }
@@ -255,6 +263,18 @@ export default function AgentDialog({ open, onClose, agent = null, onSave }: Age
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
+                label="에이전트 이름"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                error={!!errors.name}
+                helperText={errors.name}
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
                 label="운영체제"
                 value={formData.os}
                 InputProps={{ readOnly: true }}
@@ -282,19 +302,30 @@ export default function AgentDialog({ open, onClose, agent = null, onSave }: Age
               />
             </Grid>
             
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={6} style={{ display: 'none' }}>
               <TextField
                 fullWidth
-                label="에이전트 이름"
-                name="name"
-                value={formData.name}
+                label="에이전트 ID"
+                name="agent_id"
+                value={formData.agent_id}
                 onChange={handleChange}
-                error={!!errors.name}
-                helperText={errors.name}
+                error={!!errors.agent_id}
+                helperText={errors.agent_id}
                 disabled
               />
             </Grid>
-
+            <Grid item xs={12} sm={6} style={{ display: 'none' }}>
+              <TextField
+                fullWidth
+                label="마지막 활성 날짜"
+                name="last_active"
+                value={formData.last_active}
+                onChange={handleChange}
+                error={!!errors.last_active}
+                helperText={errors.last_active}
+                disabled
+              />
+            </Grid>
             {/* 추가 정보 섹션 */}
             <Grid item xs={12}>
               <Typography variant="subtitle1" fontWeight="bold" gutterBottom>

@@ -10,7 +10,15 @@ export interface CredentialData {
   auth_type: string;
   username: string;
   password: string;
-  database_port: string | number;
+  database_port: number;
+  created_by: string;
+  last_used_by: string;
+  id: number;
+  created: string;
+}
+
+export interface CredentialListData {
+  data: Array<CredentialData>;
 }
 
 // 자격 증명 응답 인터페이스
@@ -47,29 +55,38 @@ export interface CredentialResponse {
 // 자격 증명(Credential) 관련 API 서비스
 export const CredentialService = {
   // 모든 자격 증명 가져오기
-  getAll: async (): Promise<CredentialResponse> => {
+  getAll: async (): Promise<CredentialListData> => {
     const response = await apiClient.get(CREDENTIAL_ENDPOINTS.GET_ALL);
     return response.data;
   },
-  
+
   // ID로 자격 증명 가져오기
-  getById: async (id: string | number): Promise<CredentialResponse> => {
-    const response = await apiClient.post<AgentData>(AGENT_ENDPOINTS.GET_BY_ID, { id });
+  getById: async (id: string | number): Promise<CredentialData> => {
+    // const response = await apiClient.post(
+    //   CREDENTIAL_ENDPOINTS.GET_BY_ID,
+    //   { id }, // body로 전송
+    //   {
+    //     headers: {
+    //       'Content-Type': 'application/json'
+    //     }
+    //   })
+
+        const response = await apiClient.post(CREDENTIAL_ENDPOINTS.GET_BY_ID(id));
     return response.data;
   },
-  
+
   // 새 자격 증명 생성하기
   create: async (data: CredentialData): Promise<CredentialResponse> => {
     const response = await apiClient.post(CREDENTIAL_ENDPOINTS.CREATE, data);
     return response.data;
   },
-  
+
   // 기존 자격 증명 업데이트하기
   update: async (id: string | number, data: CredentialData): Promise<CredentialResponse> => {
     const response = await apiClient.put(CREDENTIAL_ENDPOINTS.UPDATE(id), data);
     return response.data;
   },
-  
+
   // 자격 증명 삭제하기
   delete: async (id: string | number): Promise<CredentialResponse> => {
     const response = await apiClient.delete(CREDENTIAL_ENDPOINTS.DELETE(id));
@@ -79,23 +96,13 @@ export const CredentialService = {
 
 // 실행 결과 인터페이스
 export interface ResultData {
-  id: string;
-  agent: string;
-  executionTime: string;
-  fileName: string;
-  status: string;
+  filename: string;
 }
 
 // 실행 결과 응답 인터페이스
 export interface ResultListResponse {
   status: string;
-  results: Array<{
-    id: string;
-    agent: string;
-    execution_time: string;
-    file_name: string;
-    status: string;
-  }>;
+  files: Array<ResultData>;
 }
 
 // 파일 내용 응답 인터페이스
@@ -108,32 +115,21 @@ export interface FileContentResponse {
 // 실행 결과(Result) 관련 API 서비스
 export const ResultService = {
   // 모든 실행 결과 가져오기
-  getAll: async (): Promise<ResultData[]> => {
+  getAll: async (): Promise<ResultListResponse> => {
     try {
       const response = await apiClient.get<ResultListResponse>(RESULT_ENDPOINTS.GET_ALL);
-      
-      if (response.data.status === 'success') {
-        // API 응답 데이터를 컴포넌트에서 사용하는 형식으로 변환
-        return response.data.results.map(item => ({
-          id: item.id,
-          agent: item.agent,
-          executionTime: item.execution_time,
-          fileName: item.file_name,
-          status: item.status
-        }));
-      }
-      return [];
+      return response.data;
     } catch (error) {
       console.error('실행 결과 조회 오류:', error);
       throw error;
     }
   },
-  
+
   // 파일 내용 가져오기
-  getFileContent: async (id: string | number): Promise<string> => {
+  getFileContent: async (filename: string ): Promise<string> => {
     try {
-      const response = await apiClient.get<FileContentResponse>(RESULT_ENDPOINTS.GET_FILE_CONTENT(id));
-      
+      const response = await apiClient.get<FileContentResponse>(RESULT_ENDPOINTS.GET_FILE_CONTENT(filename));
+
       if (response.data.status === 'success') {
         return response.data.content;
       }
@@ -183,8 +179,7 @@ export interface AgentListResponse {
 // 에이전트 업데이트 응답 인터페이스
 export interface AgentUpdateResponse {
   status: string;
-  message: string;
-  data?: AgentData;
+  data: AgentData;
 }
 
 // 에이전트 삭제 요청 인터페이스
@@ -204,7 +199,7 @@ export const AgentService = {
   getAll: async (): Promise<AgentData[]> => {
     try {
       const response = await apiClient.get<AgentListResponse>(AGENT_ENDPOINTS.GET_ALL);
-      
+
       if (response.data && response.data.status === 'success' && Array.isArray(response.data.data)) {
         // API 응답 데이터를 컴포넌트에서 사용하는 형식으로 변환
         return response.data.data.map(item => ({
@@ -228,24 +223,24 @@ export const AgentService = {
       throw error;
     }
   },
-  
+
   // ID로 에이전트 가져오기 
   getById: async (agent_id: string | number): Promise<AgentData | null> => {
     try {
-      const response = await apiClient.post<AgentData>(
-        AGENT_ENDPOINTS.GET_BY_ID, 
+      const response = await apiClient.post<AgentUpdateResponse>(
+        AGENT_ENDPOINTS.GET_BY_ID,
         { agent_id }, // body로 전송
-        { 
+        {
           headers: {
             'Content-Type': 'application/json'
           }
         }
       );
       if (response.data.status === 'success') {
-        const item = response.data;
+        const item = response.data.data;
         return {
           id: item.id,
-          name: item.name,          
+          name: item.name,
           agent_id: item.agent_id,
           os: item.os,
           os_version: item.os_version,
@@ -267,8 +262,8 @@ export const AgentService = {
   // 에이전트 정보 업데이트
   updateAgent: async (data: AgentUpdateRequest): Promise<AgentUpdateResponse> => {
     try {
-      const response = await apiClient.post<AgentUpdateResponse>(
-        AGENT_ENDPOINTS.UPDATE_AGENT,
+      const response = await apiClient.patch<AgentUpdateResponse>(
+        AGENT_ENDPOINTS.UPDATE,
         data,
         {
           headers: {
@@ -276,7 +271,7 @@ export const AgentService = {
           }
         }
       );
-      
+
       return response.data;
     } catch (error) {
       console.error('에이전트 정보 업데이트 오류:', error);
@@ -296,7 +291,7 @@ export const AgentService = {
           }
         }
       );
-      
+
       return response.data;
     } catch (error) {
       console.error('에이전트 삭제 오류:', error);
@@ -325,33 +320,33 @@ export const ExecuteAgentService = {
       // URLSearchParams 객체를 사용하여 form 데이터 형식으로 변환
       const params = new URLSearchParams();
       params.append('agent_id', data.agent_id);
-      
+
       if (data.execution_time) {
         params.append('execution_time', data.execution_time);
       }
-      
+
       if (data.select_credential) {
         params.append('select_credential', data.select_credential);
       }
-      
+
       // 선택적 필드 추가
       if (data.db_folder) {
         params.append('db_folder', data.db_folder);
       }
-      
+
       if (data.queue) {
         params.append('queue', data.queue);
       }
-      
+
       // 명령어 배열을 JSON 문자열로 변환하여 추가
       params.append('command', JSON.stringify(data.command));
-      
+
       const response = await apiClient.post(EXECUTE_ENDPOINTS.EXECUTE_AGENT, params, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         }
       });
-      
+
       return response.data;
     } catch (error) {
       console.error('Error executing agent:', error);

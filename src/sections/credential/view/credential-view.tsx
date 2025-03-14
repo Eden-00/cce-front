@@ -11,6 +11,11 @@ import TablePagination from '@mui/material/TablePagination';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 
 // API 서비스 임포트
 import { CredentialService } from 'src/api/services';
@@ -33,17 +38,17 @@ import { emptyRows, applyFilter, getComparator } from '../utils';
 
 // 실제 데이터 구조에 맞게 수정된 타입
 export type CredentialProps = {
-  id: string | number;
   name: string;
+  host: string;
   database_type: string;
-  database_port: number;
   auth_type: string;
+  username: string;
+  password: string;
+  database_port: number;
+  created_by: string;
+  last_used_by: string;
+  id: number;
   created: string;
-  username?: string;
-  host?: string;
-  password?: string;
-  created_by?: string;
-  last_used_by?: string;
 };
 
 // ----------------------------------------------------------------------
@@ -52,12 +57,18 @@ export function CredentialView() {
   const table = useTable();
   const [filterName, setFilterName] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [openSnackbar, setOpenSnackbar] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentCredentialId, setCurrentCredentialId] = useState<string | number | null>(null);
   const [credentials, setCredentials] = useState<CredentialProps[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [openDeleteConfirmDialog, setOpenDeleteConfirmDialog] = useState(false);
+  const [credentialToDelete, setCredentialToDelete] = useState<number | null>(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'info' | 'warning'
+  });
 
   // API에서 데이터 가져오기 - 여기를 변경
   const fetchCredentials = async () => {
@@ -67,8 +78,6 @@ export function CredentialView() {
       const response = await CredentialService.getAll();
       if (response && Array.isArray(response)) {
         setCredentials(response);
-      } else if (response && response.credentials && Array.isArray(response.credentials)) {
-        setCredentials(response.credentials);
       } else {
         setApiError('Unexpected API response format');
       }
@@ -116,18 +125,158 @@ export function CredentialView() {
   };
 
   const handleSuccess = () => {
-    setOpenSnackbar(true);
+    setSnackbar({
+      open: true,
+      message: isEditMode 
+        ? 'Credential updated successfully!' 
+        : 'Credential created successfully!',
+      severity: 'success'
+    });
     // 데이터 새로고침
     fetchCredentials();
   };
 
   const handleCloseSnackbar = () => {
-    setOpenSnackbar(false);
+    setSnackbar(prev => ({ ...prev, open: false }));
   };
 
   const handleRefresh = () => {
     fetchCredentials();
   };
+
+  // 단일 자격 증명 삭제 확인 다이얼로그 열기
+  const handleOpenDeleteDialog = (id: number) => {
+    setCredentialToDelete(id);
+  };
+
+  // 여러 자격 증명 삭제 확인 다이얼로그 열기
+  const handleOpenDeleteMultiDialog = () => {
+    setCredentialToDelete(null); // 여러 항목 삭제 시에는 null로 설정
+    setOpenDeleteConfirmDialog(true);
+  };
+
+  // 삭제 확인 다이얼로그 닫기
+  const handleCloseDeleteConfirmDialog = () => {
+    setOpenDeleteConfirmDialog(false);
+    setCredentialToDelete(null);
+  };
+
+  // 단일 자격 증명 삭제 처리
+  const handleDeleteCredential = async (id: number) => {    
+    try {
+      setLoading(true);
+      const response = await CredentialService.delete(id);
+      
+      if (response.status === 'success') {
+        setSnackbar({
+          open: true,
+          message: '자격 증명이 성공적으로 삭제되었습니다.',
+          severity: 'success'
+        });
+        
+        // 목록 새로고침
+        fetchCredentials();
+      } else {
+        setSnackbar({
+          open: true,
+          message: '자격 증명 삭제에 실패했습니다.',
+          severity: 'error'
+        });
+      }
+    } catch (err) { 
+      console.error('자격 증명 삭제 오류:', err);
+      setSnackbar({
+        open: true,
+        message: '자격 증명 삭제 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 선택된 여러 자격 증명 삭제 처리
+  const handleDeleteSelectedCredentials = async () => {
+    handleCloseDeleteConfirmDialog();
+    
+    if (table.selected.length === 0) return;
+    
+    try {
+      setLoading(true);
+      
+      // 선택된 ID를 숫자 배열로 변환
+      const selectedIds = table.selected.map(id => parseInt(id,10));
+      
+      let successCount = 0;
+      let failCount = 0;
+      
+      // Promise.all을 사용하여 병렬로 삭제 요청 처리
+      await Promise.all(
+        selectedIds.map(async (id) => {
+          try {
+            const response = await CredentialService.delete(id);
+            if (response.status === 'success') {
+              successCount += 1;
+            } else {
+              failCount += 1;
+            }
+          } catch (err) {
+            console.error(`자격 증명 ID ${id} 삭제 실패:`, err);
+            failCount += 1;
+          }
+        })
+      );
+      
+      // 결과 메시지 표시
+      if (successCount > 0) {
+        setSnackbar({
+          open: true,
+          message: `${successCount}개의 자격 증명이 삭제되었습니다${failCount > 0 ? `, ${failCount}개 삭제 실패` : ''}.`,
+          severity: failCount > 0 ? 'warning' : 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: '자격 증명 삭제에 실패했습니다.',
+          severity: 'error'
+        });
+      }
+      
+      // 선택 항목 초기화
+      table.onSelectAllRows(false, []);
+      
+      // 목록 새로고침
+      fetchCredentials();
+    } catch (err) {
+      console.error('자격 증명 삭제 오류:', err);
+      setSnackbar({
+        open: true,
+        message: '자격 증명 삭제 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // 현재 페이지에 표시되는 행의 ID 목록 계산
+  const visibleRows = dataFiltered
+    .slice(
+      table.page * table.rowsPerPage,
+      table.page * table.rowsPerPage + table.rowsPerPage
+    );
+  
+  const visibleRowIds = visibleRows.map(row => row.id.toString());
+
+  // 전체 선택 핸들러 수정 - 현재 페이지의 행만 선택
+  const handleSelectAllCurrentPage = (checked: boolean) => {
+    if (checked) {
+      table.onSelectAllRows(true, visibleRowIds);
+    } else {
+      table.onSelectAllRows(false, []);
+    }
+  };
+  
   return (
     <DashboardContent>
       <Box display="flex" alignItems="center" mb={5}>
@@ -162,6 +311,7 @@ export function CredentialView() {
             setFilterName(event.target.value);
             table.onResetPage();
           }}
+          onDeleteSelected={handleOpenDeleteMultiDialog}
         />
 
         {loading ? (
@@ -183,12 +333,7 @@ export function CredentialView() {
                     rowCount={credentials.length}
                     numSelected={table.selected.length}
                     onSort={table.onSort}
-                    onSelectAllRows={(checked) =>
-                      table.onSelectAllRows(
-                        checked,
-                        credentials.map((credential) => credential.id.toString())
-                      )
-                    }
+                    onSelectAllRows={handleSelectAllCurrentPage}
                     headLabel={[
                       { id: 'name', label: 'Name' },
                       { id: 'database_type', label: 'Database Type' },
@@ -197,22 +342,21 @@ export function CredentialView() {
                       { id: 'created', label: 'Created Date' },
                       { id: '' },
                     ]}
+                    rowsPerPage={table.rowsPerPage}
+                    page={table.page}
+                    visibleRows={visibleRows.length}
                   />
                   <TableBody>
-                    {dataFiltered
-                      .slice(
-                        table.page * table.rowsPerPage,
-                        table.page * table.rowsPerPage + table.rowsPerPage
-                      )
-                      .map((row) => (
-                        <CredentialTableRow
-                          key={row.id}
-                          row={row}
-                          selected={table.selected.includes(row.id.toString())}
-                          onSelectRow={() => table.onSelectRow(row.id.toString())}
-                          onEditRow={handleEditCredential}
-                        />
-                      ))}
+                    {visibleRows.map((row) => (
+                      <CredentialTableRow
+                        key={row.id}
+                        row={row}
+                        selected={table.selected.includes(row.id.toString())}
+                        onSelectRow={() => table.onSelectRow(row.id.toString())}
+                        onEditRow={handleEditCredential}
+                        onDelete={handleDeleteCredential}
+                      />
+                    ))}
 
                     <TableEmptyRows
                       height={68}
@@ -244,20 +388,50 @@ export function CredentialView() {
         onClose={handleCloseDialog} 
         onSuccess={handleSuccess} 
         editMode={isEditMode}
-        credentialId={currentCredentialId as any}
+        credentialId={currentCredentialId}
       />
 
-      {/* Success Notification */}
-      <Snackbar 
-        open={openSnackbar} 
-        autoHideDuration={6000} 
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog
+        open={openDeleteConfirmDialog}
+        onClose={handleCloseDeleteConfirmDialog}
+        aria-labelledby="delete-confirm-dialog-title"
+        aria-describedby="delete-confirm-dialog-description"
+      >
+        <DialogTitle id="delete-confirm-dialog-title">
+          자격 증명 삭제 확인
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-confirm-dialog-description">
+            {credentialToDelete !== null
+              ? '이 자격 증명을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'
+              : `선택한 ${table.selected.length}개의 자격 증명을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteConfirmDialog} color="inherit">
+            취소
+          </Button>
+          <Button 
+            onClick={handleDeleteSelectedCredentials} 
+            color="error" 
+            variant="contained" 
+            autoFocus
+          >
+            삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 알림 스낵바 */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity="success">
-          {isEditMode 
-            ? 'Credential updated successfully!' 
-            : 'Credential created successfully!'}
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
         </Alert>
       </Snackbar>
     </DashboardContent>
@@ -307,12 +481,16 @@ export function useTable() {
 
   const onChangePage = useCallback((event: unknown, newPage: number) => {
     setPage(newPage);
+    // 페이지 변경 시 선택 항목 초기화
+    setSelected([]);
   }, []);
 
   const onChangeRowsPerPage = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setRowsPerPage(parseInt(event.target.value, 10));
       onResetPage();
+      // 페이지당 행 수 변경 시 선택 항목 초기화
+      setSelected([]);
     },
     [onResetPage]
   );

@@ -17,6 +17,9 @@ type CredentialTableHeadProps = {
   onSort: (id: string) => void;
   headLabel: Record<string, any>[];
   onSelectAllRows: (checked: boolean) => void;
+  rowsPerPage?: number; // 추가: 페이지당 행 수 (옵션)
+  page?: number; // 추가: 현재 페이지 (옵션)
+  visibleRows?: number; // 추가: 현재 보이는 행 수 (옵션)
 };
 
 export function CredentialTableHead({
@@ -27,14 +30,24 @@ export function CredentialTableHead({
   headLabel,
   numSelected,
   onSelectAllRows,
+  rowsPerPage, // 추가
+  page, // 추가
+  visibleRows, // 추가
 }: CredentialTableHeadProps) {
+  // 체크박스 동작 계산을 개선할 수 있음 (페이지별 선택 지원)
+  const isAllSelected = rowCount > 0 && numSelected === rowCount;
+  const isIndeterminate = numSelected > 0 && numSelected < rowCount;
+  
+  // 현재 페이지에서만 모든 항목 선택 기능을 구현하려면 여기서 활용
+  const isAllCurrentPageSelected = visibleRows && numSelected === visibleRows;
+  
   return (
     <TableHead>
       <TableRow>
         <TableCell padding="checkbox">
           <Checkbox
-            indeterminate={numSelected > 0 && numSelected < rowCount}
-            checked={rowCount > 0 && numSelected === rowCount}
+            indeterminate={numSelected > 0 && (visibleRows ? numSelected < visibleRows : numSelected < rowCount)}
+            checked={visibleRows ? (visibleRows > 0 && numSelected === visibleRows) : (rowCount > 0 && numSelected === rowCount)}
             onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
               onSelectAllRows(event.target.checked)
             }

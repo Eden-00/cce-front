@@ -13,6 +13,7 @@ export interface Command {
     ipAddress: string;
     status: string;
     tags: string[];
+    os?: string; // 선택적 속성으로 추가
   }
   
   export interface Credential {
@@ -50,3 +51,17 @@ export interface Command {
   export const ALL_COMMANDS: Command[] = [
     ...COMMANDS
   ];
+
+  export interface AgentProps {
+    id: string;
+    name: string;
+    os: string;
+    osVersion: string;
+    ipAddress: string;
+    purpose: string;
+    admin: string;
+    tags: string[];
+    status: string;
+    agent_id: string;
+    last_active: string | null;
+  }

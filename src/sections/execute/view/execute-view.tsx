@@ -179,7 +179,6 @@ export function ExecuteView() {
         <>
           {selectedTab === 0 && (
             <ExecuteSingleView 
-              agents={agents} 
               credentials={credentials} 
               executeCommand={executeAgentCommand} 
             />

@@ -34,7 +34,11 @@ interface FormData {
   authType: string;
   username: string;
   password: string;
-  databasePort: string;
+  databasePort: number;
+  created_by: string;
+  last_used_by: string;
+  id:number;
+  created: string;
 }
 
 // Errors 인터페이스
@@ -53,11 +57,15 @@ export function CredentialDialog({
   const [formData, setFormData] = useState<FormData>({
     name: '',
     host: '',
-    databaseType: 'Cubrid',
-    authType: 'Password',
+    databaseType: '',
+    authType: '',
     username: '',
     password: '',
-    databasePort: ''
+    databasePort: 0,
+    created_by: '',
+    last_used_by: '',
+    id: 0,
+    created: ''
   });
 
   const [loading, setLoading] = useState(false);
@@ -75,9 +83,8 @@ export function CredentialDialog({
     
     try {
       const response = await CredentialService.getById(id);
-      console.log(response.status)
-      if (response.status === "success" && response.credential) {
-        const credential = response.credential;
+      if (response) {
+        const credential = response;
         setFormData({
           name: credential.name || '',
           host: credential.host || '',
@@ -85,7 +92,11 @@ export function CredentialDialog({
           authType: credential.auth_type || '',
           username: credential.username || '',
           password: credential.password || '',
-          databasePort: credential.database_port ? String(credential.database_port) : ''
+          databasePort: credential.database_port ,
+          created_by: credential.created_by || '',
+          last_used_by: credential.last_used_by || '',
+          id: credential.id,
+          created: credential.created || ''
         });
       } else {
         setApiError('Failed to load credential data');
@@ -108,11 +119,15 @@ export function CredentialDialog({
         setFormData({
           name: '',
           host: '',
-          databaseType: 'Cubrid',
-          authType: 'Password',
+          databaseType: '',
+          authType: '',
           username: '',
           password: '',
-          databasePort: ''
+          databasePort: 0,
+          created_by: '',
+          last_used_by: '',
+          id: 0,
+          created: ''
         });
         setApiError('');
       }
@@ -159,8 +174,7 @@ export function CredentialDialog({
       username: !formData.username || 
                 formData.username.length < 3 || 
                 !/^[a-zA-Z0-9_-]+$/.test(formData.username),
-      databasePort: !formData.databasePort || 
-                    !/^\d+$/.test(formData.databasePort)
+      databasePort: !formData.databasePort 
     };
 
     setErrors(newErrors);
@@ -183,7 +197,11 @@ export function CredentialDialog({
         auth_type: formData.authType,
         username: formData.username,
         password: formData.password,
-        database_port: formData.databasePort
+        database_port: formData.databasePort,
+        created_by: formData.created_by,
+        last_used_by: formData.last_used_by,
+        id: formData.id,
+        created: formData.created
       };
       
       let response;

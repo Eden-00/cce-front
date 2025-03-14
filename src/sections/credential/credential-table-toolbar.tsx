@@ -13,9 +13,15 @@ type CredentialTableToolbarProps = {
   numSelected: number;
   filterName: string;
   onFilterName: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onDeleteSelected?: () => void; // 선택된 항목 삭제 핸들러 추가
 };
 
-export function CredentialTableToolbar({ numSelected, filterName, onFilterName }: CredentialTableToolbarProps) {
+export function CredentialTableToolbar({ 
+  numSelected, 
+  filterName, 
+  onFilterName,
+  onDeleteSelected 
+}: CredentialTableToolbarProps) {
   return (
     <Toolbar
       sx={{
@@ -50,7 +56,7 @@ export function CredentialTableToolbar({ numSelected, filterName, onFilterName }
 
       {numSelected > 0 ? (
         <Tooltip title="Delete">
-          <IconButton>
+          <IconButton onClick={onDeleteSelected}>
             <Iconify icon="solar:trash-bin-trash-bold" />
           </IconButton>
         </Tooltip>
